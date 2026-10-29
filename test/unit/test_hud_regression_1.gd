@@ -61,3 +61,23 @@ func test_a_notice_never_covers_ping() -> void:
 	yard.hud.notice("Couldn't load your save, starting fresh")
 	await get_tree().process_frame
 	assert_false(yard.hud._notice.get_global_rect().intersects(yard.hud._ping.get_global_rect()))
+
+
+# Regression: a wrapped notice wasn't recognised as already showing (the label holds the
+# wrapped text), so each failed save queued another "Storage is full" behind the sticky one
+# and it stayed on screen after saving worked again.
+# Found by /review on 2026-10-29
+func test_storage_warning_clears_once_saving_works_even_when_wrapped() -> void:
+	get_tree().root.size = Vector2i(720, 1600)
+	UiTheme.font_scale_override = 2.0  # the warning wraps
+	var yard := Yard.new()
+	add_child_autofree(yard)
+	await yard.generate(128, false)
+	var hud := yard.hud
+	var warning := "Storage is full, progress isn't saving"
+	for failed_save in 3:
+		hud.notice(warning, YardHud.NoticeKind.WARNING, true)
+	UiTheme.font_scale_override = null
+	assert_true(hud._notice_text.text.contains("\n"), "the fixture wraps")
+	hud.clear_sticky()  # a save worked
+	assert_eq(hud.notice_text(), "", "nothing left on screen")

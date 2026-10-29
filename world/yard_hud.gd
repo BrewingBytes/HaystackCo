@@ -475,7 +475,9 @@ func show_state(hay: int, hay_per_s: float, boost_ms: int, pile: int, inventory:
 		cell.lock_row.visible = not owned
 		cell.price_label.text = UiTheme.grouped(economy.item(id).price)
 		cell.icon_rect.modulate = Color(TEXT, 1.0 if selected else (0.75 if owned else 0.35))
-		cell.name_label.add_theme_color_override("font_color", TEXT if selected else TEXT_MUTED)
+		var label_color := TEXT if selected else TEXT_MUTED
+		if cell.name_label.get_theme_color("font_color") != label_color:  # an override relayouts
+			cell.name_label.add_theme_color_override("font_color", label_color)
 		cell.outline.visible = selected
 		cell.accessibility_name = "%s%s" % [String(id).capitalize(), ", selected" if selected else ("" if owned else ", locked, %s hay" % UiTheme.grouped(economy.item(id).price))]
 	_shop_button.text = "SHOP · %d" % shelf if shelf > 0 else "SHOP"
@@ -540,7 +542,7 @@ func notice(text: String, kind := NoticeKind.INFO, sticky := false) -> void:
 	for queued in _notices:
 		if queued.text == text:
 			return
-	if _notice.visible and _notice_text.text == text:
+	if _notice.visible and _notice_text.accessibility_name == text:  # .text holds the wrapped lines
 		return
 	_notices.append({text = text, kind = kind, sticky = sticky})
 	if not _notice.visible or (not _notice_sticky and sticky):
