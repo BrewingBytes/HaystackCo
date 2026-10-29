@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older Auto Backup (eng D10): same rules as haystack_data_extraction_rules.xml. -->
+<full-backup-content>
+    <include domain="file" path="save/" />
+    <exclude domain="file" path="save/quarantine/" />
+</full-backup-content>

@@ -1,0 +1,37 @@
+# Godot
+.godot/
+/android/
+*.translation
+export_credentials.cfg
+
+# Build output
+/build/
+*.apk
+*.aab
+*.apks
+*.idsig
+
+# Secrets: never commit (CLAUDE.md)
+*.keystore
+*.jks
+*.pem
+*.p12
+local.properties
+google-services.json
+
+# Android helper plugin build
+/plugins/android/**/build/
+/plugins/android/.gradle/
+/plugins/android/local.properties
+
+# Local workflow state (CLAUDE.md)
+.idea-to-pr-state.md
+.gstack/
+
+# OS
+.DS_Store
+
+# Built helper AARs and native libraries (CI builds them)
+/addons/haystack_android/bin/
+/addons/haystack_native/bin/
+/native-build/

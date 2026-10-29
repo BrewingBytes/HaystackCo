@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <meta-data
+            android:name="org.godotengine.plugin.v2.HaystackHelpers"
+            android:value="com.brewingbytes.haystack.helpers.HaystackHelpers" />
+
+        <!-- Test Lab Game Loop entry (G2 frame harness). Godot's own activity isn't exported,
+             so this alias takes the TEST_LOOP intent; it merges after the app's activity. -->
+        <activity-alias
+            android:name="com.brewingbytes.haystack.helpers.GameLoopLauncher"
+            android:exported="true"
+            android:targetActivity="com.godot.game.GodotApp">
+            <intent-filter>
+                <action android:name="com.google.intent.action.TEST_LOOP" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/javascript" />
+            </intent-filter>
+        </activity-alias>
+    </application>
+</manifest>

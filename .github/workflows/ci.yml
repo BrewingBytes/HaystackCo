@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  GODOT_VERSION: 4.7.2   # keep in sync with the README version pin
+  GITLEAKS_VERSION: 8.30.1
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+      - name: Scan history and working tree
+        run: |
+          gitleaks git --redact --verbose .
+          gitleaks dir --redact --verbose .
+
+  test:
+    name: GUT + checkPacing (headless)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot && rm godot.zip
+      - name: Build native module (Linux, for the parity test)
+        run: |
+          cmake -S native -B native-build -DCMAKE_BUILD_TYPE=Release
+          cmake --build native-build --parallel
+      - name: Import project
+        run: godot --headless --import
+      - name: GUT
+        timeout-minutes: 10  # a script that fails to compile leaves headless Godot running
+        env:
+          HAYSTACK_REQUIRE_NATIVE: "1"  # the C++/GDScript parity test must run, not skip
+        run: godot --headless -s addons/gut/gut_cmdln.gd
+      - name: checkPacing (500 install seeds, ~1.5 min)
+        timeout-minutes: 15
+        env:
+          HAYSTACK_REQUIRE_NATIVE: "1"  # the GDScript fallback is ~40× slower
+        run: godot --headless -s res://tools/check_pacing.gd
+
+  android:
+    name: Android AAB (signed) + 16 KB check
+    runs-on: ubuntu-latest
+    needs: [secrets, test]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot && rm godot.zip
+      - name: Cache Android export templates
+        id: templates
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
+          key: godot-android-templates-${{ env.GODOT_VERSION }}
+      - name: Install Android export templates
+        if: steps.templates.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL -o t.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q t.tpz 'templates/android_*' 'templates/version.txt'
+          D=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$D" && mv templates/* "$D/" && rm -rf t.tpz templates
+      - name: Build native module (Android arm64)
+        run: |
+          cmake -S native -B native-build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=24
+          cmake --build native-build --parallel
+      - name: Build HaystackHelpers plugin
+        working-directory: plugins/android
+        run: ./gradlew --no-daemon :haystack_helpers:assemble
+      - name: Ephemeral signing key (the real upload key arrives in G13a)
+        run: |
+          keytool -genkeypair -v -keystore "$RUNNER_TEMP/ci.keystore" -alias ci -keyalg RSA -keysize 2048 -validity 1 \
+            -storepass cipass -keypass cipass -dname "CN=CI" >/dev/null
+      - name: Export AAB
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/ci.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ci
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: cipass
+        run: |
+          godot --headless --import
+          mkdir -p build
+          godot --headless --install-android-build-template --export-release "Android" build/haystack.aab
+          test -s build/haystack.aab
+      - name: 16 KB page-size check
+        env:
+          KS: ${{ runner.temp }}/ci.keystore
+          KS_PASS: cipass
+          KS_ALIAS: ci
+        run: |
+          curl -sSL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          printf '#!/bin/sh\nexec java -jar %s "$@"\n' "$PWD/bundletool.jar" | sudo tee /usr/local/bin/bundletool >/dev/null
+          sudo chmod +x /usr/local/bin/bundletool
+          tools/check_16kb.sh build/haystack.aab
+      - name: Activity survives font-size changes
+        run: |
+          # fontScale (0x40000000) and fontWeightAdjustment (0x10000000), added by addons/haystack_android
+          mask=$(bundletool dump manifest --bundle=build/haystack.aab \
+            --xpath='/manifest/application/activity[@android:name="com.godot.game.GodotApp"]/@android:configChanges')
+          echo "configChanges $mask"
+          [ $(( mask & 0x50000000 )) -eq $(( 0x50000000 )) ]
+      - name: Save is backed up (eng D10)
+        run: |
+          # allowBackup from the presets; the rule files from addons/haystack_android (G6)
+          dump() { bundletool dump manifest --bundle=build/haystack.aab --xpath="/manifest/application/@android:$1"; }
+          [ "$(dump allowBackup)" = "true" ]
+          [ "$(dump dataExtractionRules)" = "@xml/haystack_data_extraction_rules" ]
+          [ "$(dump fullBackupContent)" = "@xml/haystack_backup_rules" ]
+      - uses: actions/upload-artifact@v7
+        with:
+          name: haystack-aab
+          path: build/haystack.aab
+          retention-days: 7

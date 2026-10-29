@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ cloud backup and device transfer (eng D10): the save and its backup copy go with
+     the player to a new phone. Failed loads (quarantine) stay behind. Godot's user:// is the
+     app's files dir, so "save/" is user://save/. Checked by test/unit/test_backup_rules.gd. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="save/" />
+        <exclude domain="file" path="save/quarantine/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="save/" />
+        <exclude domain="file" path="save/quarantine/" />
+    </device-transfer>
+</data-extraction-rules>

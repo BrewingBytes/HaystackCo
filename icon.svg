@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Placeholder per design D10 (final art: G13b). Steel needle on Prussian blue, glint at the eye, orange safety stripe. -->
+  <rect width="512" height="512" fill="#122640"/>
+  <rect y="472" width="512" height="14" fill="#FF5A1F"/>
+  <line x1="120" y1="400" x2="392" y2="112" stroke="#C9D3DC" stroke-width="14" stroke-linecap="round"/>
+  <ellipse cx="372" cy="133" rx="6" ry="16" transform="rotate(43 372 133)" fill="#122640"/>
+  <circle cx="372" cy="133" r="22" fill="#FFFFFF" opacity="0.85"/>
+</svg>

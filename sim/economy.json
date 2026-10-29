@@ -1,0 +1,21 @@
+{
+  "economyVersion": 1,
+  "minAppVersion": 1,
+  "unitsPerHay": 10000,
+  "hayBoostMinutes": 10,
+  "pile": {
+    "firstSeed": 1,
+    "sizes": [512, 640, 768, 896, 1024],
+    "needles": { "first": 1, "everyPiles": 2, "max": 8 }
+  },
+  "reveal": { "cell": 8, "threshold": 50 },
+  "offline": { "capMinutes": 480, "dailyCapMinutes": 720, "pileCompletions": 0 },
+  "items": [
+    { "id": "rake", "behavior": "brush", "price": 0, "radius": 12, "depth": 90, "tineSpacing": 4, "ridgePct": 35, "pushPct": 0, "pushCells": 0 },
+    { "id": "pitchfork", "behavior": "brush", "price": 2500, "radius": 6, "depth": 260, "tineSpacing": 0, "ridgePct": 100, "pushPct": 0, "pushCells": 0 },
+    { "id": "magnet", "behavior": "magnet", "price": 5000, "radius": 10 },
+    { "id": "blower", "behavior": "brush", "price": 7500, "radius": 20, "depth": 40, "tineSpacing": 0, "ridgePct": 100, "pushPct": 75, "pushCells": 30 },
+    { "id": "detector", "behavior": "detector", "price": 10000, "range": 40 },
+    { "id": "conveyor", "behavior": "conveyor", "price": 20000, "length": 32, "width": 10, "digWidth": 8, "reach": 400, "rate": 9000 }
+  ]
+}

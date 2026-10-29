@@ -1,0 +1,13 @@
+; C++ sim ports (G2b). Built by CI and by native/CMakeLists.txt; without a library for this
+; platform, PileGen falls back to GDScript.
+[configuration]
+
+entry_symbol = "haystack_native_init"
+compatibility_minimum = "4.7"
+reloadable = false
+
+[libraries]
+
+macos.arm64 = "res://addons/haystack_native/bin/libhaystack_native.macos.arm64.dylib"
+linux.x86_64 = "res://addons/haystack_native/bin/libhaystack_native.linux.x86_64.so"
+android.arm64 = "res://addons/haystack_native/bin/libhaystack_native.android.arm64.so"
