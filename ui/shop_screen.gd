@@ -21,7 +21,8 @@ var _park: MachinePark
 var _wallet: Wallet
 var _economy: Economy
 var _shown_hay := -1
-var _shown_shelf := -1
+var _shown_layout := ""  # what the plates show (owned tools, shelf counts): a change rebuilds
+var _buys := {}  # StringName → [Buy button, "n more hay" label], updated in place as hay changes
 
 
 func _ready() -> void:
@@ -109,9 +110,30 @@ func close() -> void:
 		closed.emit()
 
 
+## Hay arrives every second while machines dig: that only updates the prices in place. The
+## plates are rebuilt only when what they show changes, so a press never lands on a freed button.
 func _process(_delta: float) -> void:
-	if visible and (_wallet.hay != _shown_hay or _park.shelf.size() != _shown_shelf):
+	if not visible:
+		return
+	if _layout() != _shown_layout:
 		_rebuild()
+	elif _wallet.hay != _shown_hay:
+		_show_hay()
+
+
+func _layout() -> String:
+	var parts := PackedStringArray()
+	for it in _economy.items:
+		parts.append("%s:%d:%d" % [it.id, int(_inventory.owns(it.id)), _park.shelf_count(it.id)])
+	return ",".join(parts)
+
+
+func _show_hay() -> void:
+	_shown_hay = _wallet.hay
+	_hay.text = UiTheme.grouped(_wallet.hay)
+	_hay.accessibility_name = "%s hay" % _hay.text
+	for id: StringName in _buys:
+		_set_affordability(_economy.item(id), _buys[id][0], _buys[id][1])
 
 
 ## Android Back closes the Shop.
@@ -127,13 +149,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _rebuild() -> void:
-	_shown_hay = _wallet.hay
-	_shown_shelf = _park.shelf.size()
-	_hay.text = UiTheme.grouped(_wallet.hay)
-	_hay.accessibility_name = "%s hay" % _hay.text
+	_shown_layout = _layout()
 	for child in _list.get_children():
 		child.queue_free()
 	_plates.clear()
+	_buys.clear()
 	if not _park.shelf.is_empty():
 		_section("YOUR MACHINES")
 		var first := true
@@ -150,6 +170,7 @@ func _rebuild() -> void:
 	for it in _economy.items:
 		if it.machine != null:
 			_list.add_child(_item_plate(it))
+	_show_hay()
 
 
 func _section(text: String) -> void:
@@ -200,22 +221,25 @@ func _item_plate(it: Economy.Item) -> PanelContainer:
 	if it.machine == null and _inventory.owns(it.id):
 		side.add_child(UiTheme.label(UiTheme.Style.LABEL, "Owned · in hand", UiTheme.SUCCESS, 1.5))
 		return parts[0]
-	var price := UiTheme.grouped(it.price)
-	var short := it.price - _wallet.hay
-	var buy := UiTheme.button("Buy · " + price, UiTheme.Kind.GHOST, "Buy %s for %s hay" % [it.id, price])
+	var buy := UiTheme.button("Buy · " + UiTheme.grouped(it.price), UiTheme.Kind.GHOST)
 	buy.custom_minimum_size.x = 120 * DP
-	if short > 0:
-		buy.disabled = true
-		buy.accessibility_name += ", %s more hay needed" % UiTheme.grouped(short)
-	else:
-		buy.add_theme_stylebox_override("normal", UiTheme.flat(UiTheme.GROUND, UiTheme.TEXT, 1))
 	buy.pressed.connect(func() -> void: buy_pressed.emit(it.id))
 	side.add_child(buy)
-	if short > 0:
-		var more := UiTheme.label(UiTheme.Style.COUNT, "%s more hay" % UiTheme.grouped(short), UiTheme.TEXT_MUTED, 1.5)
-		more.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		side.add_child(more)
+	var more := UiTheme.label(UiTheme.Style.COUNT, "", UiTheme.TEXT_MUTED, 1.5)
+	more.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	side.add_child(more)
+	_buys[it.id] = [buy, more]
 	return parts[0]
+
+
+func _set_affordability(it: Economy.Item, buy: Button, more: Label) -> void:
+	var price := UiTheme.grouped(it.price)
+	var short := it.price - _wallet.hay
+	buy.disabled = short > 0
+	buy.add_theme_stylebox_override("normal", UiTheme.flat(UiTheme.GROUND, UiTheme.TEXT, 1) if short <= 0 else UiTheme.flat(UiTheme.GROUND, UiTheme.LINE, 1))
+	buy.accessibility_name = "Buy %s for %s hay%s" % [it.id, price, ", %s more hay needed" % UiTheme.grouped(short) if short > 0 else ""]
+	more.visible = short > 0
+	more.text = "%s more hay" % UiTheme.grouped(maxi(short, 0))
 
 
 ## The spec row, in metres.
