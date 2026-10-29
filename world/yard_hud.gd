@@ -574,7 +574,14 @@ func _next_notice() -> void:
 	var need := _notice.get_combined_minimum_size()
 	_notice.offset_left = -need.x * 0.5
 	_notice.offset_right = need.x * 0.5
-	_notice.offset_bottom = -(TRAY_DP + 8) * DP
+	_place_notice()
+
+
+## 8dp above the tray, or above PING while PING shows (the notice never covers it).
+func _place_notice() -> void:
+	var need := _notice.get_combined_minimum_size()
+	var above := TRAY_DP + 8 + (48 + 8 if _ping != null and _ping.visible else 0)
+	_notice.offset_bottom = -above * DP
 	_notice.offset_top = _notice.offset_bottom - need.y
 
 
@@ -665,7 +672,11 @@ func machine_label_shown() -> bool:
 # --- Other --------------------------------------------------------------------------------
 
 func set_ping_visible(on: bool) -> void:
-	_ping.visible = on and not _bar.visible and not shop.visible
+	var show := on and not _bar.visible and not shop.visible
+	if show != _ping.visible:
+		_ping.visible = show
+		if _notice.visible:
+			_place_notice()
 
 
 func set_recenter_visible(on: bool) -> void:
