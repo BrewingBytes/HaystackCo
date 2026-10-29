@@ -13,6 +13,7 @@ config_version=5
 config/name="Haystack Co."
 config/description="Dig the needle out by hand, then build the machines that dig for you."
 run/main_scene="res://game/main.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Mobile")
 boot_splash/bg_color=Color(0.0706, 0.149, 0.251, 1)
 boot_splash/show_image=false
